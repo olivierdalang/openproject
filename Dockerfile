@@ -36,7 +36,6 @@ RUN apt-get update -qq && \
     tesseract-ocr \
     catdoc \
     memcached \
-    postfix \
     postgresql \
     $PGLOADER_DEPENDENCIES \
     apache2 \
