@@ -1,6 +1,32 @@
 version: '3'
 
 services:
+
+  traefik:
+    image: "traefik:v2.1.1"
+    container_name: "traefik"
+    command:
+      # uncomment for debug
+      # - "--log.level=DEBUG"
+      # - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web-secure.address=:443"
+      - "--certificatesresolvers.mytlschallenge.acme.tlschallenge=true"
+      # uncomment for debug (use staging letsencrypt server to avoid hitting limit)
+      # - "--certificatesresolvers.mytlschallenge.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
+      - "--certificatesresolvers.mytlschallenge.acme.email=${LETSENCRYPT_EMAIL}"
+      - "--certificatesresolvers.mytlschallenge.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "${HTTP_PORT}:80"
+      - "${HTTPS_PORT}:443"
+      # uncomment for debug (access to traefik web ui)
+      # - "8080:8080"
+    volumes:
+      - letsencrypt:/letsencrypt
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+
   openproject:
     image: openproject/community:10.1
     build: .
@@ -9,10 +35,22 @@ services:
       - SMTP_ADDRESS=postfix
       - SMTP_PORT=25
       - DATABASE_URL=postgresql://postgres@postgres/openproject
-    ports:
-      - "80:80"
     volumes:
       - assets:/var/openproject/assets
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.openproject.rule=HostRegexp(`{any:.*}`)"
+      - "traefik.http.routers.openproject.entrypoints=web"
+      - "traefik.http.routers.openproject.middlewares=redirect-https-middleware"
+      - "traefik.http.middlewares.redirect-https-middleware.redirectscheme.scheme=https"
+      - "traefik.http.routers.openproject-secure.rule=HostRegexp(`{any:.*}`)"
+      - "traefik.http.routers.openproject-secure.entrypoints=web-secure"
+      - "traefik.http.routers.openproject-secure.tls.certresolver=mytlschallenge"
+      - "traefik.http.routers.openproject-secure.tls.domains[0].main=${HOST}"
+      # Doesn't work, as we'd need to escape dots from the HOST in the regexp
+      # - "traefik.http.routers.openproject-secure.middlewares=redirect-domain-middleware"
+      # - "traefik.http.middlewares.redirect-domain-middleware.redirectregex.regex=^https://${HOST}/(.*)
+      # - "traefik.http.middlewares.redirect-domain-middleware.redirectregex.replacement=https://${HOST}/${1}"
 
   postgres:
     image: postgres:9.6-alpine
@@ -27,5 +65,6 @@ services:
       - MTP_HOST=${HOST}
 
 volumes:
+  letsencrypt:
   pgdata:
   assets:

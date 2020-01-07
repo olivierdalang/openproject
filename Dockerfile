@@ -37,7 +37,6 @@ RUN apt-get update -qq && \
     catdoc \
     memcached \
     $PGLOADER_DEPENDENCIES \
-    apache2 \
     supervisor && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
