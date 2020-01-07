@@ -36,7 +36,6 @@ RUN apt-get update -qq && \
     tesseract-ocr \
     catdoc \
     memcached \
-    postgresql \
     $PGLOADER_DEPENDENCIES \
     apache2 \
     supervisor && \
@@ -48,13 +47,6 @@ COPY docker/mysql-to-postgres/bin/build /tmp/build-pgloader
 RUN /tmp/build-pgloader && rm /tmp/build-pgloader
 # Add MySQL-to-Postgres migration script to path (used in entrypoint.sh)
 COPY docker/mysql-to-postgres/bin/migrate-mysql-to-postgres /usr/local/bin/
-
-# Set up pg defaults
-RUN echo "host all  all    0.0.0.0/0  md5" >> /etc/postgresql/9.6/main/pg_hba.conf
-RUN echo "listen_addresses='*'" >> /etc/postgresql/9.6/main/postgresql.conf
-RUN echo "data_directory='$PGDATA'" >> /etc/postgresql/9.6/main/postgresql.conf
-RUN rm -rf "$PGDATA_LEGACY" && rm -rf "$PGDATA" && mkdir -p "$PGDATA" && chown -R postgres:postgres "$PGDATA"
-RUN a2enmod proxy proxy_http && rm -f /etc/apache2/sites-enabled/000-default.conf
 
 # using /home/app since npm cache and other stuff will be put there when running npm install
 # we don't want to pollute any locally-mounted directory
@@ -87,9 +79,9 @@ COPY packaging/conf/database.yml ./config/database.yml
 RUN bash docker/precompile-assets.sh
 
 # ports
-EXPOSE 80 5432
+EXPOSE 8080
 
 # volumes to export
-VOLUME ["$PGDATA", "$APP_DATA_PATH"]
+VOLUME ["$APP_DATA_PATH"]
 ENTRYPOINT ["./docker/entrypoint.sh"]
 CMD ["./docker/supervisord"]
